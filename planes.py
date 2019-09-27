@@ -1,40 +1,62 @@
 import numpy as np
 import csv
 
-airports = []
+
 flight_time_array = []
-with open('flight_times.csv', newline='') as csvfile:
-    reader = csv.reader(csvfile, delimiter=' ', quotechar='|')
-    for row in reader:
-        if airports == []:
-            airports = (row[0].split(','))[1:]
-        else:
-            split = row[0].split(',')
-            split_ints = []
-            for i in split:
-                if i not in airports:
-                    split_ints.append(int(i))
-            flight_time_array.append(split_ints)
-airport_dict = {}
-for i in range(len(airports)):
-    airport_dict[airports[i]] = i
+airports = []
+
+def read_csv(airports, flight_time_array):
+    with open('flight_times.csv', newline='') as csvfile:
+        reader = csv.reader(csvfile, delimiter=' ', quotechar='|')
+        for row in reader:
+            if airports == []:
+                airports = (row[0].split(','))[1:]
+            else:
+                split = row[0].split(',')
+                split_ints = []
+                for i in split:
+                    if i not in airports:
+                        split_ints.append(int(i))
+                flight_time_array.append(split_ints)
+    airport_dict = {}
+    for i in range(len(airports)):
+        airport_dict[airports[i]] = i
+    return airports, airport_dict
+
+airports, airport_dict = read_csv(airports, flight_time_array)
 print('dictionary: \n {}'.format(airport_dict))
 
 #these global variables are parameters that can be changed
 flying_prob = 2
 break_prob = np.random.randint(0,1)
 
+class ATC:
+    def __init__(self, airports, flight_times, number_of_planes, schedule):
+        self.airports = airports
+        self.flight_times = flight_times
+        self.number_of_planes = number_of_planes
+        self.schedule = schedule
+    def get_time
+
 class Airport:
-    def __init__(self, code, destinations):
+    def __init__(self, code, airport_schedule, planes_ready):
         self.code = code
-        self.destinations = destinations
+        self.airport_schedule = airport_schedule
+        self.planes_ready = planes_ready
 
 class Plane:
-    def __init__(self, number, loc, dest, eta):
+    def __init__(self, number, location, destination, arrival_time):
         self.number = number
-        self.loc = loc
-        self.dest = dest
-        self.eta = eta
+        self.location = location
+        self.destination = destination
+        self.arrival_time = arrival_time
+    def assign_new_destination(destination, arrival_time):
+        self.destination = destination
+        self.arrival_time = arrival_time
+    def update():
+        #get time
+        #compare time to arrival time
+        #tell airport it has arrived
 
 def create_airports():
     for i in range(len(airports)):
@@ -59,9 +81,6 @@ def create_schedule(airports,planes_per_port,total_time):
     for i in airports:
         planes_in_ports.append([i,planes_per_port])
     for i in range(total_time):  #goes through each time to determine arrivals and departures for that time
-        for x in arrivals:  #check for arrivals
-            if x[0] == i:
-                planes_in_ports[x[1]][-1] += 1
         for x in planes_in_ports:     #figure out departures
             for individual_airplanes in range(x[-1]):  #this should go through and decide if each airplane available is flying
                 if (x[-1] > 0) and (np.random.randint(0,flying_prob) > 0):   #PROBABLILITY HERE
@@ -73,7 +92,15 @@ def create_schedule(airports,planes_per_port,total_time):
                     arrivalTime = int(i) + int(time_to_dest)
                     arrivals.append([arrivalTime,dest])
                     sched.append([i,x[0],airports[dest]])
+            for x in arrivals:  #check for arrivals
+                if x[0] == i:
+                    planes_in_ports[x[1]][-1] += 1
     return sched
+
+def run_simulation():
+    #determine sched, and pass to airports
+    print('planes :)')
+
 print('airports: \n {}'.format(airports))
 print('flight time array: \n {}'.format(flight_time_array))
 print('flight time from JFK to SFO (should be 6): {}'.format(find_flight_time('JFK','SFO')))

@@ -1,0 +1,72 @@
+Question
+- why is this question relevant to the system you are studying
+  - airport delays suck
+  - if we can find the best way to get air traffic to recover quickly we could make basically every holiday/vacation season easier for everyone
+    ^ are we necessarily finding the best way to recover? or are we more just seeing how much time it takes
+      in which case maybe more of just knowing how much your flight will be delayed
+        ^ we can mess with breakage probability as a representation of routine maintenance but i agree it's more of giving accurate predictions for travelers
+  - airport delays domino and one delay affects many flights after it, which can be infuriating for travelers on later flights who get their departure delayed
+    and often have that time changed multiple times. we aim to model how quickly an air traffic system can recover from a delay, to give travelers more
+    accurate predictions of their true departure time. we may extend our model to explore the fastest way to help an airport recover, in order to minimize
+    the effects of one plane's delay on the rest of the system.
+
+Model/Methodology
+- document (explicit) assumptions and simplifications and explain why you made them
+  - we assume planes are full and people will get on the right flight on their own
+  - we also assume a smaller scaled system will accurately represent a larger one because we're modeling the 10 busiest US airports with real flight times
+- tell us the parameters you are including and those you are excluding and why
+  - including airports, flight times, breakage probability
+  - excluding plane capacity, airport size (for now), people moving between planes
+
+Results
+- show your results alongside results from other studies or other comparable data
+
+Interpretation
+- discuss and contextualize your results
+- discuss the limitations of your answer in terms of overall design, assumptions, data used, and sophistication of modeling methods
+
+PLANE
+- id number
+- location
+- destination
+- next important time (takeoff or arrival)
+
+AIRPORT
+- code
+- airport-specific schedule
+  - departures
+  - arrivals
+- weather conditions (probability of storm)
+
+AIR TRAFFIC CONTROL
+- airport codes
+- times between airports
+- number of planes
+- overall schedule
+
+QUESTIONS/NOTES
+- do planes know their personal schedule or are they told every time they're about to take off?
+- who tells a plane it breaks?
+- airports can have storms which delay all the planes at once - how?
+
+ORDER OF EVENTS
+- air traffic control makes an overall schedule with just departure time, origin, destination
+- air traffic control distributes airport-specific schedules to each airport with only their departures and arrivals and times
+- air traffic control decides when and where storms are, and for how long
+- atc updates time + 1
+- everything asks atc for current time
+- each airport checks if they have a flight departing
+  - if there's a departure they check if they have a plane ready to fly
+    - if there's a plane ready to fly the airport tells it what its destination is and sends it out
+      - the plane asks atc for its flight time
+    - if there's not a plane ready to fly the flight is delayed + 1
+- each plane checks if the current time is the same as its arrival time
+  - if it should be arriving, it tells the destination airport it has arrived
+- each airport checks if they have a flight arriving
+  - if there's an arrival they receive the plane and clear its destination
+- each airport checks if they have storm-related delays coming up
+  - if (storm start time - storm length = current time) and there is a flight to a storm airport before (storm start time + storm length) it gets delayed + 1
+  - if the airport is under a storm, all departing flights are pushed back + 1
+- atc updates time + 1
+- everything asks atc for current time
+- repeat

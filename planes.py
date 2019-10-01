@@ -26,7 +26,6 @@ print('airport names: \n {}'.format(airport_names))
 
 #these global variables are parameters that can be changed
 flying_prob = 4
-break_prob = np.random.randint(0,1)
 length_of_simulation = 10 # in hours
 storm_threshold = 0.1
 airport_size = 4 # number of planes
@@ -89,12 +88,6 @@ class Plane:
         print('arrival time {}'.format(self.arrival_time))
 
 def create_airports():
-    # for i in range(len(airports)):
-    #     destinations = np.delete(airports, i)
-    #     name = airports[i]
-    #     airports[i] = Airport(airports[i], destinations, airport_size)
-    #     airport_names.append(name)
-    #     print('airport {} created'.format(name))
     airport_dict = {}
     for i in airport_names:
         name = i
@@ -153,8 +146,6 @@ def create_schedule(airport_names,airport_size,total_time,airport_dict):
             if type(destinations) == None:
                 return
             for individual_airplanes in range(port[-1]):  #this should go through and decide if each airplane available is flying
-                if type(destinations) == None:
-                    return
                 if (port[-1] > 0) and (np.random.randint(0,flying_prob) > flying_prob - 2) and len(destinations) > 0:   #PROBABLILITY HERE
                     port[-1] -= 1
                     time_to_dest = 0

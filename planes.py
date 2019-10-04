@@ -3,16 +3,28 @@ import csv
 import string
 import matplotlib.pyplot as plt
 
-#these global variables are parameters that can be changed
-flying_prob = .5
-length_of_simulation = 10 # in hours
-airport_size = 4 # number of planes
-max_storm_length = 4
-length_of_schedule = 5
+'''these global variables are parameters that can be changed'''
+
+flying_prob = .95   #probably of flying
+length_of_simulation = 17 # in hours
+airport_size = 3  #number of airplanes distributed to airports at the beginning
+max_storm_length = 3    #max and min storm length
+min_storm_length = 1
+length_of_schedule = 10 #in hours, the simulation will continue to run after the schedule ends to finish out flights started
+
+#thing that will be plotted at the end
+storm_planes_arriving = []
+storm_planes_departing= []
+storm_flights = []
+storm_delays= []
+no_storm_planes_arriving= []
+no_storm_planes_departing = []
+no_storm_flights= []
+no_storm_delays= []
 
 def read_csv(airport_names, flight_time_array):
     '''reads airport names and flight times from csv'''
-    with open('flight_times.csv', newline='') as csvfile:
+    with open('modsim-planes-master\\flight_timestest.csv', newline='') as csvfile:
         reader = csv.reader(csvfile, delimiter=' ', quotechar='|')
         for row in reader:
             if airport_names == []: # the first row of the csv is the names of the airports
@@ -27,6 +39,7 @@ def read_csv(airport_names, flight_time_array):
     return airport_names
 
 class ATC:
+    '''controls the time updating as well as storms throughout the model'''
     def __init__(self):
         self.storm_time = -1
         self.storm_length = -1
@@ -40,21 +53,24 @@ class ATC:
     def storm_schedule(self):
         '''generates information about storms'''
         global length_of_schedule
-        self.storm_length = np.random.randint(1, max_storm_length)
-        if(self.storm_length < round(length_of_schedule/4)):
+        self.storm_length = np.random.randint(min_storm_length, max_storm_length)  #randomly determines storm length
+        if(self.storm_length < round(length_of_schedule/4)):    #keeps time at the beginning of the model length
             self.storm_time = np.random.randint(self.storm_length, (round(length_of_schedule/4)))
         else:
             self.storm_time = self.storm_length
         self.storm_location = airport_names[np.random.randint(0, len(airport_names))]
         print('storm time {}, location {}, length {}'.format(self.storm_time, self.storm_location, self.storm_length))
     def get_storm_info(self):
+        '''returns the time, location, and length of storm'''
         self.storm_info = [self.storm_time, self.storm_location, self.storm_length]
         return self.storm_info
     def divide_schedule(self, schedule, airport_dict):
+        '''takes the schedule and distributes between each airport so they know their own departures'''
         for step in schedule:
-            airport_dict[step[1]].add_to_schedule(step) # tell each airport what its departures are
+            airport_dict[step[1]].add_to_schedule(step)
 
 class Airport:
+    '''handles the departures of each airplane, as well as reciving airplanes from other airports'''
     def __init__(self, code, airport_schedule, planes_ready, planes_arriving):
         self.code = code
         self.airport_schedule = airport_schedule
@@ -65,8 +81,13 @@ class Airport:
         self.planes_departing = []
         self.planes_departing_log = []
     def arriving_plane(self, plane):
+        '''keep track of arriving planes and bring them in next time cycle after wait period'''
         self.planes_arriving.append(plane)
     def departure_update(self, airport_dict, airport_names, plane_dict, storms):
+        '''checks schedule, and sees if there is a storm that could cause flights to not depart
+           if there is a storm, then push the flight back and also keep track of the delay
+           then check if there are any flights that can depart, and send each airplane off into the blue yonder
+        '''
         global current_time
         planes_departing = []
         delays = 0
@@ -77,27 +98,21 @@ class Airport:
             if time[0] == current_time:
                 if storms == True:
                     flight_time = find_flight_time(airport_dict, airport_names, self.code, time[2])
-                    # storm_info is formatted as [self.storm_time, self.storm_location, self.storm_length]
-                    if (storm_info[0] <= (current_time + flight_time)) and ((current_time + flight_time) <= (storm_info[0] + storm_info[2])) and (time[2] == storm_info[1]):#dest = storm
-                        #sched time + 1
+                    # storm_info is formatted as storm_time, storm_location, storm_length
+                    if (storm_info[0] <= (current_time + flight_time)) and ((current_time + flight_time) <= (storm_info[0] + storm_info[2])) and (time[2] == storm_info[1]):
+                        # ^if the destination
                         self.airport_schedule[time_num][0] += 1
                         delays += 1
-                        print('flight delayed from {} to {} at time {} due to storm at destination'.format(self.code, time[2], current_time))
                     elif (storm_info[0] <= current_time <= (storm_info[0] + storm_info[2])) and (self.code == storm_info[1]): #current = storm
                         self.airport_schedule[time_num][0] += 1
                         delays += 1
-                        print('flight delayed from {} to {} at time {} due to storm at origin'.format(self.code, time[2], current_time))
             time = self.airport_schedule[time_num] # update after potentially changing time
             if time[0] == current_time:
-                # print('current_time_schedule: {}'.format(time))
                 if len(self.planes_ready) > 0:
-                    # print('{} planes ready {} at {} at time {}'.format(len(self.planes_ready), self.planes_ready, self.code, time[0]))
                     plane_flying = self.planes_ready[0]
                     flight_time = find_flight_time(airport_dict, airport_names, self.code, time[2])
                     plane_dict[plane_flying].assign_new_destination(time[2], flight_time, time[-1])
-                    #print('plane {} flying from {} to {} with flight number {}'.format(plane_flying, self.code, time[2], time[-1]))
                     self.planes_departing.append(plane_flying)
-                    # print('plane {} departed from {} flying to {} at time {}'.format(plane_flying, self.code, time[2], current_time))
                     if len(self.planes_ready) == 1:
                         self.planes_ready = []
                     else:
@@ -105,16 +120,16 @@ class Airport:
                 else: #we have no planes
                     self.airport_schedule[time_num][0] += 1
                     delays +=1
-                    #print('flight delayed from {} to {} at time {} due to not enough planes'.format(self.code, time[2], current_time))
         self.planes_departing_log.append(len(self.planes_departing))
         return delays
     def arrival_update(self):
+        '''takes planes that have arrived and processes them to ready to fly'''
         for plane in self.planes_arriving:
             self.planes_ready.append(plane)
-            # print('plane {} arrived at {} at time {}'.format(plane, self.code, current_time))
         self.planes_arriving_now = len(self.planes_arriving)
         self.planes_arriving = []
     def add_to_schedule(self, step):
+        '''takes info from the schedule distribution by the atc and compiles own schedule'''
         self.airport_schedule.append(step)
 
 class Plane:
@@ -138,21 +153,17 @@ class Plane:
         global planes_in_air
         global plane_tracking
         plane_tracking.append([current_time, self.code, self.location, self.destination, self.flight_number])
+        if self.flying:
+            print('i, {}, and flying at time {} and should land at {}'.format(self.code,current_time,self.arrival_time))
         if self.arrival_time == current_time:
             self.location = self.destination
             airport_dict[self.destination].arriving_plane(self.code)
             self.flying = False
-            if current_time > 0:
-                done_flights[self.flight_number] += 1
             if self.code in planes_in_air:
                 if len(planes_in_air) == 1:
                     planes_in_air = []
                 else:
                     planes_in_air.remove(self.code)
-        # if (current_time == length_of_simulation - 2) and self.flying == True:
-        #     print('I, {}, am flying at the end of the simulation'.format(self.code))
-        # if current_time == length_of_simulation and self.flying == True:
-        #     print('{} still flying at end of simulation'.format(self.code))
 
 def create_airports():
     airport_dict = {}
@@ -219,39 +230,42 @@ def create_schedule(airport_names, airport_size, total_time, airport_dict):
             destinations.remove(airport_names[port_number])
             if type(destinations) == None:
                 return
-            print('i {} have this many planes {}'.format(airport_names[port_number], planes_in_ports[port_number][1]))
             for individual_airplanes in range(planes_in_ports[port_number][1]):  #this should go through and decide if each airplane available is flying
                 if (planes_in_ports[port_number][1] > 0) and (np.random.random() > 1- flying_prob) and len(destinations) > 0:   #PROBABLILITY HERE
-                    print('send plane')
                     planes_in_ports[port_number][1] -= 1
                     dest = np.random.randint(0,len(airport_names))
                     time_to_dest = flight_time_array[port_number][dest]
                     arrival_time = int(i) + int(time_to_dest) + 1
-                    #if arrival_time < length_of_simulation:
                     if airport_names[dest] in destinations:
                         arrivals.append([arrival_time,dest])
                         sched.append([i,port[0],airport_names[dest], flight_number])
                         flight_number+=1
-                        done_flights.append(0)
                         if len(destinations) == 1:
                             destinations = []
                         else:
                             destinations.remove(airport_names[dest])
-            for x in arrivals:  #check for arrivals
-                if x[0] == i:   #if the time the arrival specifies is now
-                    for plane_num in range(len(planes_in_ports)):
-                        if planes_in_ports[plane_num][0] == airport_names[x[1]]:
-                            print('adding plane to {} at time {}'.format(airport_names[x[1]],i))
-                            planes_in_ports[plane_num][1] += 1
-            print(planes_in_ports)
+        for x in arrivals:  #check for arrivals
+            if x[0] == i:   #if the time the arrival specifies is now
+                for plane_num in range(len(planes_in_ports)):
+                    if planes_in_ports[plane_num][0] == airport_names[x[1]]:
+                        planes_in_ports[plane_num][1] += 1
     return sched
 
 def run_simulation(storms):
+    global storm_delays
+    global storm_flights
+    global storm_planes_arriving
+    global storm_planes_departing
+
+    global no_storm_delays
+    global no_storm_flights
+    global no_storm_planes_arriving
+    global no_storm_planes_departing
+
     total_delays = 0
     '''determine schedule, and pass to airports'''
-    # for airport in airport_names:
-        # print('airport {} schedule {}'.format(airport, airport_dict[airport].airport_schedule))
     planes_in_air_at_time = []
+    global planes_in_air
     for step in range(length_of_simulation):
         delays = 0
         atc.update()
@@ -266,54 +280,91 @@ def run_simulation(storms):
         planes_in_air_at_time.append(len(planes_in_air)) # tracking how many planes are in the air at a given time
         delayed_per_hour.append(delays)
         total_delays += delays
-        # print('current delays {}'.format(delays))
-    i = 0
-    plotting = ['b', 'g', # colors for plotting later
-                'r', 'c',
-                'm', 'k',
-                'y', 'tab:pink',
-                'darkkhaki', 'maroon',
-                'gold', 'lawngreen',
-                'lightseagreen', 'olive',
-                'palevioletred', 'orchid',
-                'peru', 'coral',
-                'orangered', 'mediumspringgreen',
-                'rebeccapurple', 'teal']
     for airport in airport_names: # graphing arrivals by airport over time
-        # plt.plot(airport_dict[airport].planes_arriving_log, ':', color=plotting[i], label=str(airport) + ' arrivals')
-        plt.plot(airport_dict[airport].planes_departing_log, ':', color=plotting[i+1], label=str(airport) + ' departures')
-        i += 2
-    # if len(planes_in_air) == 0: # if there are no planes still flying at the end of the simulation
-    #     print('all landed')
-    # else:
-    #     print('got stuck')
+        if storms:
+            for airport in airport_names: # graphing arrivals by airport over time
+                storm_planes_arriving.append(airport_dict[airport].planes_arriving_log)
+                storm_planes_departing.append(airport_dict[airport].planes_departing_log)
+        else:
+            for airport in airport_names: # graphing arrivals by airport over time
+                no_storm_planes_arriving.append(airport_dict[airport].planes_arriving_log)
+                no_storm_planes_departing.append(airport_dict[airport].planes_departing_log)
     print('total delays {}'.format(total_delays))
-    plt.plot(planes_in_air_at_time, color='k', label='planes in air')
-    plt.plot(delayed_per_hour, color='deepskyblue', label='delays')
-    plt.xlabel('time (hours)')
-    plt.ylabel('number of planes')
-    plt.legend()
-    plt.show()
+    if storms:
+        storm_flights = planes_in_air_at_time
+        storm_delays = delayed_per_hour
+    else:
+        no_storm_flights = planes_in_air_at_time
+        no_storm_delays = delayed_per_hour
 
 if __name__ == '__main__':
-    storms = False
     flight_time_array = []
-    airport_names = []
     plane_names = []
-    delayed_per_hour = []
+    airport_names = []
     airport_names = read_csv(airport_names, flight_time_array)
-    done_flights = [] # debug piece
-    current_time = -2 # don't change this - atc will update it later
-    planes_in_air = []
-    plane_tracking = []
     airport_dict = create_airports()
     plane_dict = create_airplanes()
     schedule = create_schedule(airport_names, airport_size, length_of_schedule, airport_dict)
-    print(schedule)
     atc = ATC()
-    if storms == True:
-        atc.storm_schedule()
-    else:
-        print('no storms')
-    atc.divide_schedule(schedule, airport_dict)
-    run_simulation(storms)
+    atc.storm_schedule()
+    plotting = ['b', 'g', # colors for plotting later
+        'r', 'c',
+        'm', 'k',
+        'y', 'tab:pink',
+        'darkkhaki', 'maroon',
+        'gold', 'lawngreen',
+        'lightseagreen', 'olive',
+        'palevioletred', 'orchid',
+        'peru', 'coral',
+        'orangered', 'mediumspringgreen',
+        'rebeccapurple', 'teal']
+    for i in range(0,2):
+        current_time = -2 # don't change this - atc will update it later
+        planes_in_air = []
+        plane_tracking = []
+        delayed_per_hour = []
+        airport_dict = create_airports()
+        plane_dict = create_airplanes()
+        atc.divide_schedule(schedule, airport_dict)
+        delayed_per_hour = []
+        if i == 0:
+            run_simulation(False)
+        else:
+            run_simulation(True)
+    plt.figure(0)
+    plt.title("NO STORM")
+    plt.plot(no_storm_flights, label = 'flights')
+    plt.plot(no_storm_delays, label = 'delays')
+    i = 0
+    i = 0
+    for airport_num in range(len(airport_names)): # graphing arrivals by airport over time
+        airport = airport_names[airport_num]
+        #plt.plot(no_storm_planes_arriving[airport_num], ':', color=plotting[i], label=str(airport) + ' arrivals')
+        plt.plot(no_storm_planes_departing[airport_num], ':', color=plotting[i+1], label=str(airport) + ' departures')
+        i += 2
+    plt.xlabel('time (hours)')
+    plt.ylabel('number of planes')
+    plt.legend()
+    plt.figure(1)
+    plt.title('STORM')
+    plt.plot(storm_flights, label = 'flights')
+    plt.plot(storm_delays, label = 'delays')
+    i = 0
+    for airport_num in range(len(airport_names)): # graphing arrivals by airport over time
+        airport = airport_names[airport_num]
+        #plt.plot(storm_planes_arriving[airport_num], ':', color=plotting[i], label=str(airport) + ' arrivals')
+        plt.plot(storm_planes_departing[airport_num], ':', color=plotting[i+1], label=str(airport) + ' departures')
+        i += 2
+    plt.xlabel('time (hours)')
+    plt.ylabel('number of planes')
+    plt.legend()
+    plt.figure(2)
+    plt.title('number of flights, storm vs no storm')
+    plt.plot(storm_flights, label = 'flights with storm')
+    plt.plot(no_storm_flights, label = 'flights without storm')
+    plt.plot(storm_delays, label = 'delays caused by storm')
+    print(storm_flights)
+    print(no_storm_flights)
+    plt.legend()
+    plt.plot()
+    plt.show()
